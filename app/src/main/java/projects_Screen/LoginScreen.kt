@@ -23,16 +23,26 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import projects_asset.LoginViewModel
 
 @Composable
-fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Unit) {
+fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Unit, viewModel: LoginViewModel = viewModel()) {
     // Khai báo biến lưu trạng thái nhập liệu
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(viewModel.message) {
+        if(viewModel.message.isNotEmpty()){
+            snackbarHostState.showSnackbar(viewModel.message)
+        }
+        else if(viewModel.message.contains("Đăng nhập thành công")){
+            onNavigateToHomePage()
+        }
+    }
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) {
@@ -94,7 +104,7 @@ fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Un
                             )
                         }
                     } else{
-                        onNavigateToHomePage()
+                        viewModel.login(username, password)
                     }
                 },
                 modifier = Modifier

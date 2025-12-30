@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,9 +31,8 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,16 +45,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.text.isDigitsOnly
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import projects_asset.RegisterViewModel
 
 @Composable
 fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
+    viewModel: RegisterViewModel = viewModel()
 ){
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var fullName by remember { mutableStateOf("") }
+    var full_name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -64,6 +65,15 @@ fun RegisterScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.message) {
+        if (viewModel.message.isNotEmpty()) {
+            snackbarHostState.showSnackbar(viewModel.message)
+        }
+        else if (viewModel.message.contains("Đăng ký thành công")) {
+            delay(1500) // Chờ 1.5 giây để người dùng đọc thông báo
+            onNavigateToLogin()
+        }
+    }
     Scaffold(
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
@@ -84,8 +94,8 @@ fun RegisterScreen(
             )
             Spacer(Modifier.height(20.dp))
             OutlinedTextField(
-                value = fullName,
-                onValueChange = {fullName = it},
+                value = full_name,
+                onValueChange = {full_name = it},
                 label = { Text("Họ và tên:")},
                 leadingIcon = {Icon(Icons.Filled.Person, contentDescription = "")},
                 modifier = Modifier.fillMaxWidth(),
@@ -168,21 +178,21 @@ fun RegisterScreen(
                             )
                         }
                     }
-                    else if(fullName.isEmpty() || phoneNumber.isEmpty() || email.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()){
+                    else if(full_name.isEmpty() || phoneNumber.isEmpty() || email.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()){
                         scope.launch {
                             snackbarHostState.showSnackbar(
                                 message = "Chưa điền đầy đủ thông tin",
                                 duration = SnackbarDuration.Short
                             )
                         }
-                    } else if(!email.contains("@gmail.com")){
+                    } else if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
                         scope.launch {
                             snackbarHostState.showSnackbar(
                                 message = "Email không tồn tại",
                                 duration = SnackbarDuration.Short
                             )
                         }
-                    } else if(phoneNumber.length != 10 || !phoneNumber.isDigitsOnly()){
+                    } else if(phoneNumber.length != 10 || !phoneNumber.all { it.isDigit() }){
                         scope.launch {
                             snackbarHostState.showSnackbar(
                                 message = "Số điện thoại không hợp lệ",
@@ -190,8 +200,22 @@ fun RegisterScreen(
                             )
                         }
                     }
+                    else if(password.length < 6){
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Mật khẩu phải dài hơn 6 ký tự",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    }
                     else{
-                        onNavigateToLogin()
+                        viewModel.register(
+                            username = username,
+                            password = password,
+                            phoneNumber = phoneNumber,
+                            email = email,
+                            full_name = full_name,
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
