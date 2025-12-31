@@ -36,13 +36,14 @@ fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Un
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(viewModel.message) {
-        if(viewModel.message.isNotEmpty()){
-            snackbarHostState.showSnackbar(viewModel.message)
-        }
-        else if(viewModel.message.contains("Đăng nhập thành công")){
+        if (viewModel.message.isBlank()) return@LaunchedEffect
+
+        snackbarHostState.showSnackbar(viewModel.message)
+        if (viewModel.message.contains("Đăng nhập thành công")) {
             onNavigateToHomePage()
         }
     }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) {

@@ -66,11 +66,12 @@ fun RegisterScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel.message) {
-        if (viewModel.message.isNotEmpty()) {
-            snackbarHostState.showSnackbar(viewModel.message)
-        }
-        else if (viewModel.message.contains("Đăng ký thành công")) {
-            delay(1500) // Chờ 1.5 giây để người dùng đọc thông báo
+        if (viewModel.message.isBlank()) return@LaunchedEffect
+
+        snackbarHostState.showSnackbar(viewModel.message)
+
+        if (viewModel.message.contains("Đăng ký thành công")) {
+            delay(1500)
             onNavigateToLogin()
         }
     }
