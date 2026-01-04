@@ -6,34 +6,81 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-class LoginViewModel: ViewModel() {
+class LoginViewModel : ViewModel() {
+    var user by mutableStateOf<LoginResponse?>(null)
+    var identifier by mutableStateOf("")
+    var password by mutableStateOf("")
     var message by mutableStateOf("")
-        private set
     var loading by mutableStateOf(false)
-        private set
-    fun login(username: String, password: String){
+
+    fun login(onSuccess: (LoginResponse) -> Unit) {
+        // Reset message
+        message = ""
+
+        // Validate input
+        if (identifier.isBlank() || password.isBlank()) {
+            message = "Vui lòng nhập tài khoản và mật khẩu"
+            return
+        }
+
         viewModelScope.launch {
-            try{
+            try {
                 loading = true
-                val response = RetrofitClient.api.login(LoginRequest(identifier = username, password = password))
-                if(response.isSuccessful) {
-                    val loginBody = response.body()
-                    if(loginBody?.status == "success" && loginBody.user != null){
-                        message = "Đăng nhập thành công"
-                    }
-                    else {
-                        message = "Sai tài khoản hoặc mật khẩu"
+
+                val request = LoginRequest(identifier.trim(), password)
+                val response = RetrofitClient.userApi.login(request)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val userData = response.body()!!
+
+                    // Kiểm tra theo status từ server
+                    if (userData.status == "success" || userData.status == "Success") {
+                        if (userData.user != null) {
+                            // Lưu session
+                            UserSession.login(
+                                username = userData.user.username,
+                                phoneNumber = userData.user.phoneNumber ?: "",
+                                email = userData.user.email ?: "",
+                                fullName = userData.user.full_name ?: ""
+                            )
+                            user = userData
+                            onSuccess(userData)
+                        } else {
+                            message = "Tài khoản không có thông tin"
+                        }
+                    } else {
+                        // Server trả về lỗi
+                        message = userData.message.ifEmpty { "Tài khoản hoặc mật khẩu không đúng" }
                     }
                 } else {
-                    message = "Sai tài khoản hoặc mật khẩu, lỗi 401, 400, 500"
+                    // Lỗi HTTP
+                    val errorBody = response.errorBody()?.string()
+                    message = if (!errorBody.isNullOrEmpty()) {
+                        try {
+                            JSONObject(errorBody).getString("message")
+                        } catch (e: Exception) {
+                            "Tài khoản hoặc mật khẩu không đúng"
+                        }
+                    } else {
+                        "Tài khoản hoặc mật khẩu không đúng"
+                    }
                 }
-            } catch (e: Exception){
-                message = "Không thể kết nối server"
-            }
-            finally {
+            } catch (e: Exception) {
+                message = "Không thể kết nối đến máy chủ"
+                e.printStackTrace()
+            } finally {
                 loading = false
             }
         }
+    }
+
+    // Reset form
+    fun reset() {
+        identifier = ""
+        password = ""
+        message = ""
+        loading = false
     }
 }

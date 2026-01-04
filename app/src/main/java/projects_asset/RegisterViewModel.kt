@@ -41,7 +41,7 @@ class RegisterViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 loading = true
-                val response = RetrofitClient.api.register(RegisterRequest(
+                val response = RetrofitClient.userApi.register(RegisterRequest(
                     username = username, password = password, phoneNumber = phoneNumber,
                     email = email, full_name = full_name
                 ))

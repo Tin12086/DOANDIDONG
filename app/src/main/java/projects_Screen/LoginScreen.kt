@@ -18,39 +18,57 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import projects_asset.LoginViewModel
 
 @Composable
-fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Unit, viewModel: LoginViewModel = viewModel()) {
-    // Khai báo biến lưu trạng thái nhập liệu
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+fun LoginScreen(
+    onNavigateToHomePage: () -> Unit,
+    onNavigateToRegister: () -> Unit,
+    viewModel: LoginViewModel = viewModel()
+) {
     var passwordVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(viewModel.message) {
-        if (viewModel.message.isBlank()) return@LaunchedEffect
 
-        snackbarHostState.showSnackbar(viewModel.message)
-        if (viewModel.message.contains("Đăng nhập thành công")) {
+    // Hiển thị thông báo từ ViewModel và xử lý chuyển trang
+    LaunchedEffect(viewModel.message) {
+        if (viewModel.message.isNotBlank()) {
+            snackbarHostState.showSnackbar(
+                message = viewModel.message,
+                duration = SnackbarDuration.Short
+            )
+            // Nếu đăng nhập thành công, chuyển trang
+            if (viewModel.user != null) {
+                delay(1000)
+                onNavigateToHomePage()
+            }
+        }
+    }
+
+    // Backup: tự động chuyển trang khi user được set
+    LaunchedEffect(viewModel.user) {
+        if (viewModel.user != null) {
+            delay(1000)
             onNavigateToHomePage()
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
-    ) {
-        paddingValues ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize().padding(paddingValues)
+                .fillMaxSize()
+                .padding(paddingValues)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -58,80 +76,97 @@ fun LoginScreen(onNavigateToHomePage: () -> Unit, onNavigateToRegister: () -> Un
             Text(
                 text = "Chào Mừng Trở Lại",
                 fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            // Ô nhập tên đăng nhập hoặc Email
+            // Username/Email field - sử dụng trực tiếp từ ViewModel
             OutlinedTextField(
-                value = username,
+                value = viewModel.identifier,
+                onValueChange = { viewModel.identifier = it },
+                label = { Text("Tài khoản hoặc Email") },
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = "")
+                    Icon(Icons.Default.Person, contentDescription = "Tài khoản")
                 },
-                onValueChange = { username = it },
-                label = { Text("Tên đăng nhập") },
+                isError = viewModel.message.isNotBlank() && viewModel.identifier.isBlank(),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Ô nhập mật khẩu
+            // Password field - sử dụng trực tiếp từ ViewModel
             OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
+                value = viewModel.password,
+                onValueChange = { viewModel.password = it },
                 label = { Text("Mật khẩu") },
                 leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = "")
+                    Icon(Icons.Default.Lock, contentDescription = "Mật khẩu")
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                isError = viewModel.message.isNotBlank() && viewModel.password.isBlank(),
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
-                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(image, null)
+                        Icon(
+                            if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = "Hiển thị mật khẩu"
+                        )
                     }
-                },
+                }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Nút Đăng nhập
+            // Login Button với loading state
             Button(
                 onClick = {
-                    if(username.isEmpty() || password.isEmpty()){
+                    if (viewModel.identifier.isBlank() || viewModel.password.isBlank()) {
                         scope.launch {
                             snackbarHostState.showSnackbar(
                                 message = "Vui lòng nhập đầy đủ thông tin",
                                 duration = SnackbarDuration.Short
                             )
                         }
-                    } else{
-                        viewModel.login(username, password)
+                    } else {
+                        viewModel.login(onSuccess = { loginResponse ->
+                            // Thành công - sẽ tự động chuyển trang trong LaunchedEffect
+                        })
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(50.dp),
+                enabled = !viewModel.loading
             ) {
-                Text("ĐĂNG NHẬP")
+                if (viewModel.loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text("ĐĂNG NHẬP", fontWeight = FontWeight.Bold)
+                }
             }
-            Spacer(Modifier.height(14.dp))
-            TextButton(
-                onClick = {
-                    onNavigateToRegister()
-                },
 
-            ) {
-                Text("Chưa có tài khoản, đăng ký ngay", style = TextStyle(textDecoration = TextDecoration.Underline))
+            Spacer(Modifier.height(14.dp))
+
+            // Link đến trang đăng ký
+            TextButton(onClick = { onNavigateToRegister() }) {
+                Text(
+                    "Chưa có tài khoản? Đăng ký ngay",
+                    style = TextStyle(textDecoration = TextDecoration.Underline)
+                )
             }
+
             Spacer(Modifier.height(18.dp))
-            Row(
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                SocialLoginRow()
-            }
+
+            // Social login
+            SocialLoginRow()
         }
     }
 }
+
 @Composable
 fun SocialIcon(
     icon: ImageVector,
@@ -142,7 +177,7 @@ fun SocialIcon(
         onClick = onClick,
         modifier = Modifier
             .size(50.dp)
-            .border(1.dp, Color.LightGray, CircleShape) // Tạo viền tròn nhẹ
+            .border(1.dp, Color.LightGray, CircleShape)
     ) {
         Icon(
             imageVector = icon,
@@ -152,9 +187,9 @@ fun SocialIcon(
         )
     }
 }
+
 @Composable
-fun SocialLoginRow(
-) {
+fun SocialLoginRow() {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -182,19 +217,19 @@ fun SocialLoginRow(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Nút Facebook (Màu xanh chuẩn)
+            // Nút Facebook
             SocialIcon(
-                icon = Icons.Default.Facebook, // Lưu ý: Cần import thư mục Icons mở rộng hoặc dùng painterResource nếu có file svg
+                icon = Icons.Default.Facebook,
                 tint = Color(0xFF1877F2),
                 onClick = {}
             )
 
             Spacer(modifier = Modifier.width(24.dp))
 
-            // Nút Email/Google (Màu đỏ cam)
+            // Nút Email/Google
             SocialIcon(
                 icon = Icons.Default.Email,
-                tint = Color(0xFFDB4437), // Màu đỏ Google
+                tint = Color(0xFFDB4437),
                 onClick = {}
             )
         }
